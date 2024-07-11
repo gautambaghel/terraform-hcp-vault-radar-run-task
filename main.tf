@@ -174,9 +174,11 @@ resource "aws_lambda_function" "runtask_fulfillment" {
   }
   environment {
     variables = {
-      HCP_TF_HMAC_SECRET_ARN = aws_secretsmanager_secret.runtask_hmac.arn
-      CW_LOG_GROUP_NAME      = local.cloudwatch_log_group_name
-      DEV_MODE               = "False"
+      HCP_CLIENT_ID     = var.hcp_client_id
+      HCP_CLIENT_SECRET = var.hcp_client_secret
+      HCP_PROJECT_ID    = var.hcp_project_id
+      CW_LOG_GROUP_NAME = local.cloudwatch_log_group_name
+      DEV_MODE          = "False"
     }
   }
   #checkov:skip=CKV_AWS_116:not using DLQ

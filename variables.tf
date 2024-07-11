@@ -9,6 +9,24 @@ variable "hcp_tf_org" {
   type        = string
 }
 
+variable "hcp_project_id" {
+  description = "HCP Project ID for HCP Vault Radar"
+  type        = string
+  sensitive   = true
+}
+
+variable "hcp_client_id" {
+  description = "HCP Client ID for HCP Vault Radar"
+  type        = string
+  sensitive   = true
+}
+
+variable "hcp_client_secret" {
+  description = "HCP Client Secret for HCP Vault Radar"
+  type        = string
+  sensitive   = true
+}
+
 variable "runtask_stages" {
   description = "List of all supported run task stages"
   type        = list(string)

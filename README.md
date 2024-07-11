@@ -1,7 +1,9 @@
 <!-- BEGIN_TF_DOCS -->
-# terraform-aws-run-task-template
+# terraform-hcp-vault-radar-runtask
 
-Use this module to develop HCP Terraform run task and deploy it in AWS.
+This repository contains the Terraform module and python code for the Terraforn [run tasks](https://developer.hashicorp.com/terraform/cloud-docs/integrations/run-tasks) integration between [HashiCorp Vault Radar](https://developer.hashicorp.com/hcp/docs/vault-radar) and [HCP Terraform](https://app.terraform.io/public/signup/account)
+
+The intention of this integration is to make sure that when DevOps engineers are creating Terraform runs they're not accidentally commiting their secrets, API keys, private keys and other sensitive information as part of their Terraform run.
 
 ![Diagram](./images/arch.png)
 
@@ -126,6 +128,9 @@ To use this module you need have the following:
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The region from which this module will be executed. | `string` | n/a | yes |
+| <a name="input_hcp_client_id"></a> [hcp\_client\_id](#input\_hcp\_client\_id) | HCP Client ID for HCP Vault Radar | `string` | n/a | yes |
+| <a name="input_hcp_client_secret"></a> [hcp\_client\_secret](#input\_hcp\_client\_secret) | HCP Client Secret for HCP Vault Radar | `string` | n/a | yes |
+| <a name="input_hcp_project_id"></a> [hcp\_project\_id](#input\_hcp\_project\_id) | HCP Project ID for HCP Vault Radar | `string` | n/a | yes |
 | <a name="input_hcp_tf_org"></a> [hcp\_tf\_org](#input\_hcp\_tf\_org) | HCP Terraform Organization name | `string` | n/a | yes |
 | <a name="input_run_task_fulfillment_image"></a> [run\_task\_fulfillment\_image](#input\_run\_task\_fulfillment\_image) | The image with the Lambda fulfillment code, please see the src/ folder for more details | `string` | n/a | yes |
 | <a name="input_cloudwatch_log_group_name"></a> [cloudwatch\_log\_group\_name](#input\_cloudwatch\_log\_group\_name) | RunTask CloudWatch log group name | `string` | `"/hashicorp/terraform/runtask/"` | no |

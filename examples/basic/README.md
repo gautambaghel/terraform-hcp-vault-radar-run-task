@@ -57,7 +57,6 @@ This is a basic example setup on using the module.
 
 | Name | Type |
 |------|------|
-| [tfe_organization_run_task.aws_iam_analyzer](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/resources/organization_run_task) | resource |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/5.56.1/docs/data-sources/region) | data source |
 | [tfe_organization.hcp_tf_org](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/data-sources/organization) | data source |
 
@@ -65,6 +64,9 @@ This is a basic example setup on using the module.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_hcp_client_id"></a> [hcp\_client\_id](#input\_hcp\_client\_id) | HCP Client ID for HashiCorp Cloud Platform | `string` | n/a | yes |
+| <a name="input_hcp_client_secret"></a> [hcp\_client\_secret](#input\_hcp\_client\_secret) | HCP Client Secret for HashiCorp Cloud Platform | `string` | n/a | yes |
+| <a name="input_hcp_project_id"></a> [hcp\_project\_id](#input\_hcp\_project\_id) | HCP Project ID for HashiCorp Cloud Platform | `string` | n/a | yes |
 | <a name="input_hcp_tf_org"></a> [hcp\_tf\_org](#input\_hcp\_tf\_org) | HCP Terraform Organization name | `string` | n/a | yes |
 | <a name="input_tf_run_task_logic_image"></a> [tf\_run\_task\_logic\_image](#input\_tf\_run\_task\_logic\_image) | Docker image for the HCP Terraform run task logic | `string` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | AWS region to deploy the resources | `string` | `"us-east-1"` | no |

@@ -1,9 +1,11 @@
 import os
 import sys
+import pty
 import json
 import time
 import logging
 import requests
+import subprocess
 
 import utils
 
@@ -11,18 +13,23 @@ log_level       = os.environ.get("log_level", logging.DEBUG)
 log_group_name  = os.environ.get("CW_LOG_GROUP_NAME", False)
 dev_mode        = os.environ.get("DEV_MODE", True)
 
+# Set the environment variables --> HCP_CLIENT_ID, HCP_CLIENT_SECRET, HCP_PROJECT_ID
+env_vars = os.environ.copy()
+
 logger = logging.getLogger()
 logger.setLevel(log_level)
 
 # THIS IS THE MAIN FUNCTION TO IMPLEMENT BUSINESS LOGIC
 # TO PROCESS THE TERRFORM PLAN FILE or TERRAFORM CONFIG (.tar.gz)
 # SCHEMA - https://developer.hashicorp.com/terraform/cloud-docs/api-docs/run-tasks/run-tasks-integration#severity-and-status-tags
-def process_run_task(type: str, data: str):
-    issues_count = 0                         # Change this to the number of issues found
-    results      = []                        # Change this to the list of results to be displayed in the HCP Terraform UI
-    status       = "passed"                  # Change this to "failed" if the task fails
-    url          = "https://example.com/"    # Change this to the URL of the external service
-    message      = "Run task description!"   # Change this to a meaningful message
+def process_run_task(type: str, run_id: str, data: str):
+    issues_count = 0
+    results      = []
+    status       = "passed"
+    url          = "https://vault-radar-portal.cloud.hashicorp.com"
+    message      = "HCP Vault Radar message!"
+
+    master, worker = pty.openpty()  # Open a pseudo-terminal
 
     if type == "pre_plan":
 
@@ -32,13 +39,64 @@ def process_run_task(type: str, data: str):
         with tarfile.open(data, "r:gz") as tar:
             tar.extractall(path="pre_plan")
 
-        # --> Process the Terraform config file here and change the above values accordingly
+        # Run HashiCorp Vault Radar
+        scan_folder = f"{os.getcwd()}/pre_plan/{run_id}"
+        radar_output = f"{scan_folder}/vault-radar-output.csv"
+        subprocess.run(
+            [
+                "/vault-radar/vault-radar",
+                "scan",
+                "folder",
+                "--outfile",
+                radar_output,
+                "--path",
+                scan_folder,
+            ],
+            env=env_vars,
+            stdin=worker,
+            stdout=subprocess.PIPE,  # Optional: Capture stdout
+            stderr=subprocess.PIPE,  # Optional: Capture stderr
+        )
+
+        stdout, stderr = process.communicate()
+        os.close(worker)
+        os.close(master)
+        logger.debug(f"stdout: {stdout.decode('utf-8')}")
+        logger.debug(f"stderr: {stderr.decode('utf-8')}")
+        url, status, message, results = utils.process_radar_output(result_path=radar_output)
 
     elif type == "post_plan":
 
-        # --> Process the Terraform plan file here and change the above values accordingly
+        # Save the plan JSON to a file
+        plan_file = os.path.join(os.getcwd(), "post_plan", run_id, "plan.json")
+        os.makedirs(os.path.dirname(plan_file), exist_ok=True)
+        with open(plan_file, "w") as file:
+            file.write(json.dumps(data, indent=4))
 
-        logger.debug(f"Processing plan: {data}")
+        # Run HashiCorp Vault Radar
+        radar_output = f"{os.getcwd()}/post_plan/{run_id}/vault-radar-output.csv"
+        process = subprocess.Popen(
+            [
+                "/vault-radar/vault-radar",
+                "scan",
+                "file",
+                "--outfile",
+                radar_output,
+                "--path",
+                plan_file,
+            ],
+            env=env_vars,
+            stdin=worker,
+            stdout=subprocess.PIPE,  # Optional: Capture stdout
+            stderr=subprocess.PIPE,  # Optional: Capture stderr
+        )
+
+        stdout, stderr = process.communicate()
+        os.close(worker)
+        os.close(master)
+        logger.debug(f"stdout: {stdout.decode('utf-8')}")
+        logger.debug(f"stderr: {stderr.decode('utf-8')}")
+        url, status, message, results = utils.process_radar_output(result_path=radar_output)
 
     return url, status, message, results
 
@@ -134,7 +192,7 @@ def lambda_handler(event, context):
                 )
 
                 # Run the implemented business logic here
-                url, status, message, results = process_run_task(type="pre_plan", path=config_file)
+                url, status, message, results = process_run_task(type="pre_plan", run_id=run_id, path=config_file)
 
             elif event["payload"]["detail"]["stage"] == "post_plan":
 
@@ -153,7 +211,7 @@ def lambda_handler(event, context):
                     logger.debug(f"Received plan: {organization_name}/{workspace_id}, Run: {run_id}\n")
 
                     # Run the implemented business logic here
-                    url, status, message, results = process_run_task(type="post_plan", data=plan_json)
+                    url, status, message, results = process_run_task(type="post_plan", run_id=run_id, data=plan_json)
 
                 if error:
                     logger.debug(f"{error}")
@@ -174,8 +232,10 @@ def lambda_handler(event, context):
                     status=status,
                     message=message,
                     results=results,
-                    url="https://external.service.dev/terraform-plan-checker/run-i3Df5to9ELvibKpQ",
+                    url="https://vault-radar-portal.cloud.hashicorp.com",
                 )
+                return None
+
             return runtask_response
 
         else:
@@ -184,4 +244,17 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.error(f"Error: {e}")
         runtask_response["message"] = "HCP Terraform run task failed, please look into the service logs for more details."
+
+        # This is only used for testing the callback in local dev environment
+        if dev_mode:
+            test_callback(
+                callback_url=task_result_callback_url,
+                access_token=access_token,
+                status=status,
+                message=message,
+                results=results,
+                url="https://vault-radar-portal.cloud.hashicorp.com",
+            )
+            return None
+
         return runtask_response

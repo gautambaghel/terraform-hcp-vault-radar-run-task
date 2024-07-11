@@ -7,12 +7,20 @@
 
    * ngrok 3.6.0+
    * docker 25.0.3+
+   * Vault Radar 0.7.0+
 
 1. Build and run the docker image
 
     ```sh
-    docker build --platform linux/amd64 -t hcp-tf-run-task:latest .
-    docker run -p 9000:8080 hcp-tf-run-task:latest
+    export HCP_PROJECT_ID="<hcp_project_id>"
+    export HCP_CLIENT_ID="<hcp_client_id>"
+    export HCP_CLIENT_SECRET="<hcp_client_secret>"
+    docker build --platform linux/amd64 -t hcp-vault-radar-runtask:latest .
+    docker run \
+    -e HCP_PROJECT_ID=${HCP_PROJECT_ID} \
+    -e HCP_CLIENT_ID=${HCP_CLIENT_ID} \
+    -e HCP_CLIENT_SECRET=${HCP_CLIENT_SECRET} \
+    -p 9000:8080 hcp-vault-radar-runtask:latest
     ```
 
 1. Test the application (business logic)
@@ -55,7 +63,7 @@
     This is where we'll push the HCP Terraform run task image.
 
     ```sh
-    aws ecr create-repository --repository-name hcp-tf-run-task
+    aws ecr create-repository --repository-name hcp-vault-radar-runtask
     ```
 
 1. Retrieve an authentication token and authenticate your Docker client to your registry
@@ -67,12 +75,12 @@
 1. Tag and push the image to the ECR repository
 
     ```sh
-    docker tag hcp-tf-run-task:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/hcp-tf-run-task:latest
-    docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/hcp-tf-run-task:latest
+    docker tag hcp-vault-radar-runtask:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/hcp-vault-radar-runtask:latest
+    docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/hcp-vault-radar-runtask:latest
     ```
 
 1. Output the ECR Image URL to use with Terraform > save it in `examples/basic/terraform.auto.tfvars` file
 
     ```sh
-    echo $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/hcp-tf-run-task:latest
+    echo $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/hcp-vault-radar-runtask:latest
     ```

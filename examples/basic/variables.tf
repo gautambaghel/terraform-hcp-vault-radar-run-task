@@ -3,6 +3,24 @@ variable "hcp_tf_org" {
   description = "HCP Terraform Organization name"
 }
 
+variable "hcp_project_id" {
+  type        = string
+  description = "HCP Project ID for HashiCorp Cloud Platform"
+  sensitive   = true
+}
+
+variable "hcp_client_id" {
+  type        = string
+  description = "HCP Client ID for HashiCorp Cloud Platform"
+  sensitive   = true
+}
+
+variable "hcp_client_secret" {
+  type        = string
+  description = "HCP Client Secret for HashiCorp Cloud Platform"
+  sensitive   = true
+}
+
 variable "tf_run_task_logic_image" {
   type        = string
   description = "Docker image for the HCP Terraform run task logic"
