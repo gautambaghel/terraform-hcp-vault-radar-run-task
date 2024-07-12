@@ -63,7 +63,7 @@
     This is where we'll push the HCP Terraform run task image.
 
     ```sh
-    aws ecr create-repository --repository-name hcp-vault-radar-runtask
+    aws ecr create-repository --region $AWS_DEFAULT_REGION --repository-name hcp-vault-radar-runtask
     ```
 
 1. Retrieve an authentication token and authenticate your Docker client to your registry

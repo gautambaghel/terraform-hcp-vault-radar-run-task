@@ -9,9 +9,9 @@ import subprocess
 
 import utils
 
-log_level       = os.environ.get("log_level", logging.DEBUG)
+log_level       = os.environ.get("log_level", logging.INFO)
 log_group_name  = os.environ.get("CW_LOG_GROUP_NAME", False)
-dev_mode        = os.environ.get("DEV_MODE", True)
+dev_mode        = os.environ.get("DEV_MODE", "true")
 
 # Set the environment variables --> HCP_CLIENT_ID, HCP_CLIENT_SECRET, HCP_PROJECT_ID
 env_vars = os.environ.copy()
@@ -29,8 +29,6 @@ def process_run_task(type: str, run_id: str, data: str):
     url          = "https://vault-radar-portal.cloud.hashicorp.com"
     message      = "HCP Vault Radar message!"
 
-    master, worker = pty.openpty()  # Open a pseudo-terminal
-
     if type == "pre_plan":
 
         with open(data, "wb") as file:
@@ -40,62 +38,55 @@ def process_run_task(type: str, run_id: str, data: str):
             tar.extractall(path="pre_plan")
 
         # Run HashiCorp Vault Radar
-        scan_folder = f"{os.getcwd()}/pre_plan/{run_id}"
+        scan_folder = f"/tmp/pre_plan/{run_id}"
         radar_output = f"{scan_folder}/vault-radar-output.csv"
-        subprocess.run(
-            [
-                "/vault-radar/vault-radar",
-                "scan",
-                "folder",
-                "--outfile",
-                radar_output,
-                "--path",
-                scan_folder,
-            ],
-            env=env_vars,
-            stdin=worker,
-            stdout=subprocess.PIPE,  # Optional: Capture stdout
-            stderr=subprocess.PIPE,  # Optional: Capture stderr
-        )
+        cmd = [
+            "vault-radar",
+            "scan",
+            "folder",
+            "--outfile",
+            radar_output,
+            "--path",
+            scan_folder
+        ]
 
-        stdout, stderr = process.communicate()
-        os.close(worker)
-        os.close(master)
-        logger.debug(f"stdout: {stdout.decode('utf-8')}")
-        logger.debug(f"stderr: {stderr.decode('utf-8')}")
+        try:
+            popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            popen.wait()
+        except Exception as e:
+            logger.error(f"Error: {e}")
+
+        logger.info(popen.stdout.read())
         url, status, message, results = utils.process_radar_output(result_path=radar_output)
 
     elif type == "post_plan":
 
         # Save the plan JSON to a file
-        plan_file = os.path.join(os.getcwd(), "post_plan", run_id, "plan.json")
+        plan_file = os.path.join("/tmp", "post_plan", run_id, "plan.json")
         os.makedirs(os.path.dirname(plan_file), exist_ok=True)
         with open(plan_file, "w") as file:
             file.write(json.dumps(data, indent=4))
 
         # Run HashiCorp Vault Radar
-        radar_output = f"{os.getcwd()}/post_plan/{run_id}/vault-radar-output.csv"
-        process = subprocess.Popen(
-            [
-                "/vault-radar/vault-radar",
-                "scan",
-                "file",
-                "--outfile",
-                radar_output,
-                "--path",
-                plan_file,
-            ],
-            env=env_vars,
-            stdin=worker,
-            stdout=subprocess.PIPE,  # Optional: Capture stdout
-            stderr=subprocess.PIPE,  # Optional: Capture stderr
-        )
+        radar_output = f"/tmp/post_plan/{run_id}/vault-radar-output.csv"
+        cmd = [
+            "vault-radar",
+            "scan",
+            "folder",
+            "--outfile",
+            radar_output,
+            "--path",
+            plan_file
+        ]
 
-        stdout, stderr = process.communicate()
-        os.close(worker)
-        os.close(master)
-        logger.debug(f"stdout: {stdout.decode('utf-8')}")
-        logger.debug(f"stderr: {stderr.decode('utf-8')}")
+        try:
+            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            stdout, stderr = p.communicate()
+            logger.info(stdout.decode("utf-8"))
+        except Exception as e:
+            logger.error(f"Error: {e}")
+
+        logger.info(popen.stdout.read())
         url, status, message, results = utils.process_radar_output(result_path=radar_output)
 
     return url, status, message, results
@@ -155,7 +146,7 @@ def lambda_handler(event, context):
         "results": []
     }
 
-    if dev_mode:
+    if dev_mode.lower() == "true":
         ev = {
             "payload": {
                 "detail": event
@@ -169,6 +160,12 @@ def lambda_handler(event, context):
         # validate the run task address and HMAC by sending a payload with dummy data.
         if event["payload"]["detail"]["access_token"] != "test-token":
 
+            access_token             = event["payload"]["detail"]["access_token"]
+            organization_name        = event["payload"]["detail"]["organization_name"]
+            workspace_id             = event["payload"]["detail"]["workspace_id"]
+            run_id                   = event["payload"]["detail"]["run_id"]
+            task_result_callback_url = event["payload"]["detail"]["task_result_callback_url"]
+
             # Segment run tasks based on stage
             if event["payload"]["detail"]["stage"] == "pre_plan":
 
@@ -177,11 +174,6 @@ def lambda_handler(event, context):
                 configuration_version_download_url = event["payload"]["detail"][
                     "configuration_version_download_url"
                 ]
-                access_token             = event["payload"]["detail"]["access_token"]
-                organization_name        = event["payload"]["detail"]["organization_name"]
-                workspace_name           = event["payload"]["detail"]["workspace_name"]
-                run_id                   = event["payload"]["detail"]["run_id"]
-                task_result_callback_url = event["payload"]["detail"]["task_result_callback_url"]
 
                 # Download the config to a folder
                 config_file = utils.download_config(
@@ -199,11 +191,6 @@ def lambda_handler(event, context):
                 # Do some processing on the run task event
                 # Docs - https://www.terraform.io/cloud-docs/api-docs/run-tasks-integration#request-json
                 plan_json_api_url        = event["payload"]["detail"]["plan_json_api_url"]
-                access_token             = event["payload"]["detail"]["access_token"]
-                organization_name        = event["payload"]["detail"]["organization_name"]
-                workspace_id             = event["payload"]["detail"]["workspace_id"]
-                run_id                   = event["payload"]["detail"]["run_id"]
-                task_result_callback_url = event["payload"]["detail"]["task_result_callback_url"]
 
                 # Get the plan JSON
                 plan_json, error         = utils.get_plan(plan_json_api_url, access_token)
@@ -246,14 +233,13 @@ def lambda_handler(event, context):
         runtask_response["message"] = "HCP Terraform run task failed, please look into the service logs for more details."
 
         # This is only used for testing the callback in local dev environment
-        if dev_mode:
+        if dev_mode.lower() == "true":
             test_callback(
                 callback_url=task_result_callback_url,
                 access_token=access_token,
-                status=status,
-                message=message,
-                results=results,
-                url="https://vault-radar-portal.cloud.hashicorp.com",
+                status="failed",
+                message=runtask_response["message"],
+                results=[]
             )
             return None
 

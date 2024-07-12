@@ -47,7 +47,7 @@ variable "run_task_fulfillment_image" {
 variable "run_task_iam_roles" {
   description = "List of IAM roles to be attached to the Lambda function"
   type        = list(string)
-  default     = []
+  default     = null
 }
 
 variable "event_source" {

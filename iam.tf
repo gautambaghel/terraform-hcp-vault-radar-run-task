@@ -48,7 +48,13 @@ resource "aws_iam_role_policy_attachment" "runtask_callback" {
 
 ################# IAM for run task fulfillment ##################
 resource "aws_iam_role" "runtask_fulfillment" {
-  name                = "${var.name_prefix}-runtask-fulfillment"
+  name               = "${var.name_prefix}-runtask-fulfillment"
+  assume_role_policy = templatefile("${path.module}/templates/trust-policies/lambda.tpl", { none = "none" })
+}
+
+resource "aws_iam_role" "runtask_fulfillment_custom" {
+  count               = var.run_task_iam_roles != null ? 1 : 0
+  name                = "${var.name_prefix}-runtask-fulfillment-custom"
   assume_role_policy  = templatefile("${path.module}/templates/trust-policies/lambda.tpl", { none = "none" })
   managed_policy_arns = var.run_task_iam_roles
 }

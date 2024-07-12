@@ -199,6 +199,27 @@ resource "aws_cloudwatch_log_group" "runtask_fulfillment_output" {
   kms_key_id        = aws_kms_key.runtask_key.arn
 }
 
+#####################################################################################
+# EVENT BRIDGE
+#####################################################################################
+
+resource "aws_cloudwatch_event_rule" "runtask_rule" {
+  name           = "${var.name_prefix}-runtask-rule"
+  description    = "Rule to capture HCP Terraform run task events"
+  event_bus_name = var.event_bus_name
+  event_pattern = templatefile("${path.module}/templates/runtask_rule.tpl", {
+    var_event_source   = var.event_source
+    var_runtask_stages = jsonencode(var.runtask_stages)
+  })
+
+}
+
+resource "aws_cloudwatch_event_target" "runtask_target" {
+  rule           = aws_cloudwatch_event_rule.runtask_rule.id
+  event_bus_name = var.event_bus_name
+  arn            = aws_sfn_state_machine.runtask_states.arn
+  role_arn       = aws_iam_role.runtask_rule.arn
+}
 
 #####################################################################################
 # STATE MACHINE
@@ -296,28 +317,6 @@ resource "aws_kms_alias" "runtask_waf" {
   provider      = aws.cloudfront_waf
   name          = "alias/runtask-WAF"
   target_key_id = aws_kms_key.runtask_waf[count.index].key_id
-}
-
-#####################################################################################
-# EVENT BRIDGE
-#####################################################################################
-
-resource "aws_cloudwatch_event_rule" "runtask_rule" {
-  name           = "${var.name_prefix}-runtask-rule"
-  description    = "Rule to capture HCP Terraform run task events"
-  event_bus_name = var.event_bus_name
-  event_pattern = templatefile("${path.module}/templates/runtask_rule.tpl", {
-    var_event_source   = var.event_source
-    var_runtask_stages = jsonencode(var.runtask_stages)
-  })
-
-}
-
-resource "aws_cloudwatch_event_target" "runtask_target" {
-  rule           = aws_cloudwatch_event_rule.runtask_rule.id
-  event_bus_name = var.event_bus_name
-  arn            = aws_sfn_state_machine.runtask_states.arn
-  role_arn       = aws_iam_role.runtask_rule.arn
 }
 
 #####################################################################################

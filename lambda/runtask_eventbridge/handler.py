@@ -15,19 +15,20 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 '''
 
-"""HashiCorp HCP Terraform RunTask event handler implementation"""
+"""HashiCorp HCP Terraform run task event handler implementation"""
 
 import os
-import json
-import urllib.parse
-import base64
 import hmac
+import json
+import base64
 import hashlib
 import logging
-from cgi import parse_header
+import urllib.parse
 import boto3
 import botocore
 import botocore.session
+
+from cgi import parse_header
 from aws_secretsmanager_caching import SecretCache, SecretCacheConfig
 
 client = botocore.session.get_session().create_client('secretsmanager')
@@ -41,24 +42,23 @@ if 'log_level' in os.environ:
 else:
     logger.setLevel(logging.INFO)
 
-if "TFC_HMAC_SECRET_ARN" in os.environ:
-    tfc_hmac_secret_arn = os.environ.get('TFC_HMAC_SECRET_ARN')
+if "HCP_TF_HMAC_SECRET_ARN" in os.environ:
+    hcp_tf_hmac_secret_arn = os.environ.get('HCP_TF_HMAC_SECRET_ARN')
 
-if "TFC_USE_WAF" in os.environ:
-    tfc_use_waf = os.environ.get('TFC_USE_WAF')
+if "HCP_TF_USE_WAF" in os.environ:
+    hcp_tf_use_waf = os.environ.get('HCP_TF_USE_WAF')
 
-if "TFC_CF_SECRET_ARN" in os.environ:
-    tfc_cf_secret_arn = os.environ.get('TFC_CF_SECRET_ARN')
+if "HCP_TF_CF_SECRET_ARN" in os.environ:
+    hcp_tf_cf_secret_arn = os.environ.get('HCP_TF_CF_SECRET_ARN')
 
-if "TFC_CF_SIGNATURE" in os.environ:
-    tfc_cf_signature = os.environ.get('TFC_CF_SIGNATURE')
+if "HCP_TF_CF_SIGNATURE" in os.environ:
+    hcp_tf_cf_signature = os.environ.get('HCP_TF_CF_SIGNATURE')
 
 event_bus_name = os.environ.get('EVENT_BUS_NAME', 'default')
-
 event_bridge_client = boto3.client('events')
 
 def _add_header(request, **kwargs):
-    userAgentHeader = request.headers['User-Agent'] + ' fURLWebhook/1.0 (HashiCcorp)'
+    userAgentHeader = request.headers['User-Agent'] + ' fURLWebhook/1.0 (HashiCorp)'
     del request.headers['User-Agent']
     request.headers['User-Agent'] = userAgentHeader
 
@@ -70,7 +70,7 @@ class PutEventError(Exception):
     pass
 
 def lambda_handler(event, _context):
-    """RunTask function"""
+    """Terraform run task function"""
     logger.debug(json.dumps(event))
 
     headers = event.get('headers')
@@ -85,9 +85,9 @@ def lambda_handler(event, _context):
                     f'Unexpected error: {err}, {type(err)}', headers)
         return {'statusCode': 500, 'body': 'Internal Server Error'}
 
-    detail_type = 'hashicorp-tfc-runtask'
+    detail_type = 'hcp-tf-runtask'
     try:
-        if tfc_use_waf == "True" and not contains_valid_cloudfront_signature(event=event):
+        if hcp_tf_use_waf == "True" and not contains_valid_cloudfront_signature(event=event):
             print_error('401 Unauthorized - Invalid CloudFront Signature', headers)
             return {'statusCode': 401, 'body': 'Invalid CloudFront Signature'}
 
@@ -102,7 +102,7 @@ def lambda_handler(event, _context):
                         str(response['Entries'][0]), headers)
             return {'statusCode': 500, 'body': 'FailedEntry Error - The entry could not be succesfully forwarded to Amazon EventBridge'}
 
-        return {'statusCode': 202, 'body': 'Message forwarded to Amazon EventBridge'}
+        return {'statusCode': 200, 'body': 'Message forwarded to Amazon EventBridge'}
 
     except PutEventError as err:
         print_error(f'500 Put Events Error - {err}', headers)
@@ -124,7 +124,7 @@ def normalize_payload(raw_payload, is_base64_encoded):
 
 def contains_valid_cloudfront_signature(event): # Check for the special header value from CloudFront
     try:
-        secret = cache.get_secret_string(tfc_cf_secret_arn)
+        secret = cache.get_secret_string(hcp_tf_cf_secret_arn)
         payload_signature = event["headers"]["x-cf-sig"]
         if secret == payload_signature:
             return True
@@ -136,9 +136,9 @@ def contains_valid_cloudfront_signature(event): # Check for the special header v
 
 def contains_valid_signature(event):
     """Check for the payload signature
-       HashiCorp Terraform Run Task documention: https://developer.hashicorp.com/terraform/cloud-docs/integrations/run-tasks#securing-your-run-task
+       HashiCorp Terraform run task documention: https://developer.hashicorp.com/terraform/cloud-docs/integrations/run-tasks#securing-your-run-task
     """
-    secret = cache.get_secret_string(tfc_hmac_secret_arn)
+    secret = cache.get_secret_string(hcp_tf_hmac_secret_arn)
     payload_bytes = get_payload_bytes(
         raw_payload=event['body'], is_base64_encoded=event['isBase64Encoded'])
     computed_signature = compute_signature(

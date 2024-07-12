@@ -45,7 +45,7 @@ def lambda_handler(event, context):
     logger.debug(json.dumps(event))
     try:
         VERIFY = True
-        if event["payload"]["detail-type"] == "hashicorp-tfc-runtask":
+        if event["payload"]["detail-type"] == "hcp-tf-runtask":
             if HCP_TF_ORG and event["payload"]["detail"]["organization_name"] != HCP_TF_ORG:
                 logger.error("TFC Org verification failed : {}".format(event["payload"]["detail"]["organization_name"]))
                 VERIFY = False
